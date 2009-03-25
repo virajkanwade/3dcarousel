@@ -3,7 +3,6 @@ package com.GSLab.ThreeDCarousel
 {
 	import flash.events.MouseEvent;
 	
-	import mx.controls.Alert;
 	import mx.core.UIComponent;
 	
 	public class ThreeDCarousel extends UIComponent
@@ -39,12 +38,19 @@ package com.GSLab.ThreeDCarousel
 		[Bindable]
 		private var itemHolders:Array;
 		
+		// This will determine the direction of carousel 
 		[Bindable]
 		public var direction:String = "horizontal";
 		
+		// The alpha for items
 		[Bindable]
 		public var defaultItemAlpha:Number = 0.6;
 		
+		// The item click handler.
+		[Bindable]
+		public var itemClickHandler:Function;
+		
+		// Constructor
 		public function ThreeDCarousel()
 		{
 			itemHolders = new Array();
@@ -122,7 +128,9 @@ package com.GSLab.ThreeDCarousel
 				itemHolder.addEventListener(MouseEvent.MOUSE_OUT, mouseOutItem);
 		 
 				//We also want to listen for the clicks
-				//TODO//itemHolder.addEventListener(MouseEvent.CLICK, imageClicked);
+				if(itemClickHandler != null) {
+					itemHolder.addEventListener(MouseEvent.CLICK, itemClickHandler);
+				}
 		 
 				//Add the imageHolder to the stage
 				addChild(itemHolder);

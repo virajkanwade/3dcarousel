@@ -28,6 +28,9 @@
 				// Assign the items to the threeDCarousel
 				threeDCarousel.items = itemHolders;
 				
+				// Assign the function pointer for itemClickHandler
+				threeDCarousel.itemClickHandler = itemClickHandler;
+				
 				// After everything has been set, start the carousel
 				threeDCarousel.initializeCarousel();
 			}
@@ -55,6 +58,17 @@
 					threeDCarousel.windowResized();
 				}
 			}
+      
+      private function itemClickHandler(e:Event):void {
+				var obj:* = e.target;
+				while(!(obj is components.ExampleCarouselItem )) {
+					obj = obj.parent;
+				}
+				var id:int = parseInt(obj.id);
+				Alert.show(id.toString());
+        // Do whatever
+			}
+
 		]]>
 	</mx:Script>
 	
