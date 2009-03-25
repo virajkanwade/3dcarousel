@@ -1,0 +1,1 @@
+Put the com directory and the contents of examples directory in src directory
