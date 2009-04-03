@@ -1,8 +1,10 @@
 /* Copyright (c) 2009 Viraj Kanwade., published under the BSD license. */
 package com.GSLab.ThreeDCarousel
 {
+	import flash.events.Event;
 	import flash.events.MouseEvent;
 	
+	import mx.controls.Alert;
 	import mx.core.UIComponent;
 	
 	public class ThreeDCarousel extends UIComponent
@@ -10,7 +12,7 @@ package com.GSLab.ThreeDCarousel
 		//Set the focal length
 		[Bindable]
 		public var focalLength:Number = 500;
-		 
+		
 		//Set the vanishing point
 		[Bindable]
 		public var vanishingPointX:Number;// = stage.stageWidth / 2;
@@ -61,20 +63,100 @@ package com.GSLab.ThreeDCarousel
 			numberOfItems = itemHolders.length;
 		}
 		
+		public function get items():Array {
+			return itemHolders;
+		}
+		
 		public function windowResized():void {
-			getVanishingPoint();
+			if(this.parent != null) {
+				getVanishingPoint();
+			}
 		}
 		
 		private function getVanishingPoint():void {
 			if(direction == "horizontal") {
-				vanishingPointX = this.parent.width / 2 - (radius/2);
-				vanishingPointY = this.parent.height / 2 - (radius/2);
+				vanishingPointX = (this.parent.width - itemHolders[0].width) / 2;
+				vanishingPointY = (this.parent.height - radius - itemHolders[0].height) / 2;
 			} else {
-				vanishingPointX = this.parent.width / 2 - (itemHolders[0].width/2);
-				vanishingPointY = this.parent.height / 2 - (radius/2);
+				vanishingPointX = (this.parent.width - itemHolders[0].width) / 2;
+				vanishingPointY = (this.parent.height - radius) / 2;
+
+				// This is a dirty hack to try and get the carousel in the center of the parent.
+				var bbox:Object = getBBoxOfCarousel();
+				if(bbox.min_x < 0) {
+					bbox.min_x = - bbox.min_x;
+				}
+				if(bbox.max_x < 0) {
+					bbox.max_x = - bbox.max_x;
+				}
+				if(bbox.min_y < 0) {
+					bbox.min_y = - bbox.min_y;
+				}
+				if(bbox.max_y < 0) {
+					bbox.max_y = - bbox.max_y;
+				}
+				
+				vanishingPointX = (this.parent.width - (bbox.max_x - bbox.min_x)) / 2 + 15;
+				vanishingPointY = (bbox.min_y + bbox.max_y) / 2;
 			}
 		}
 
+		private function getBBoxOfCarousel():Object {
+			var bbox:Object = new Object();
+			//Calculate the angle difference between the images (in radians)
+			var angleDifference:Number = Math.PI * (360 / numberOfItems) / 180;
+
+			var xpos3D:Number;
+			var ypos3D:Number;
+			var zpos3D:Number;
+			
+			bbox.min_x = 100000;
+			bbox.max_x = -100000;
+			bbox.min_y = 100000;
+			bbox.max_y = -100000;
+
+			//Loop through the images
+			for (var i:uint = 0; i < itemHolders.length; i++) {
+				//Get the angle for the image (we space the images evenly)
+				var startingAngle:Number = angleDifference * i;
+		 
+				//Position the imageHolder
+				if(direction == 'horizontal') {
+					xpos3D = radius * Math.cos(startingAngle);
+					//ypos3D = floor;
+					ypos3D = radius * Math.cos(startingAngle);
+					zpos3D = radius * Math.sin(startingAngle);
+				} else {
+					xpos3D =  -  radius * Math.cos(startingAngle) * 0.5;
+					ypos3D = radius * Math.sin(startingAngle);
+					zpos3D = radius * Math.cos(startingAngle);
+				}
+
+				//Calculate the scale ratio for the imageHolder (the further the image -> the smaller the scale)
+				var scaleRatio:Number = focalLength/(focalLength + zpos3D);
+		 
+		 		var X:Number = vanishingPointX + xpos3D * scaleRatio;
+				var Y:Number = vanishingPointY + ypos3D * scaleRatio;
+
+		 		if(bbox.min_x > X) {
+		 			bbox.min_x = X;
+		 		}
+		 		if(bbox.max_x < X) {
+		 			bbox.max_x = X;
+		 		}
+		 		if(bbox.min_y > Y) {
+		 			bbox.min_y = Y;
+		 		}
+		 		if(bbox.max_y < Y) {
+		 			bbox.max_y = Y;
+		 		}
+			}
+			
+		 	bbox.max_x += itemHolders[0].width;
+ 			bbox.max_y += itemHolders[0].height;
+			return bbox;
+		}
+		
 		//This function is called when all the images have been loaded.
 		//Now we are ready to create the 3D carousel.
 		public function initializeCarousel():void {
@@ -96,19 +178,19 @@ package com.GSLab.ThreeDCarousel
 				//Get the angle for the image (we space the images evenly)
 				var startingAngle:Number = angleDifference * i;
 		 
-				//Set a "currentAngle" attribute for the imageHolder
-				itemHolder.currentAngle = startingAngle;
-
 				//Position the imageHolder
 				if(direction == 'horizontal') {
 					itemHolder.xpos3D = radius * Math.cos(startingAngle);
 					itemHolder.zpos3D = radius * Math.sin(startingAngle);
 					itemHolder.ypos3D = floor;
 				} else {
-					itemHolder.xpos3D =  -  radius * Math.cos(itemHolder.currentAngle) * 0.5;
+					itemHolder.xpos3D =  -  radius * Math.cos(startingAngle) * 0.5;
 					itemHolder.ypos3D = radius * Math.sin(startingAngle);
 					itemHolder.zpos3D = radius * Math.cos(startingAngle);
 				}
+
+				//Set a "currentAngle" attribute for the imageHolder
+				itemHolder.currentAngle = startingAngle;
 
 				//Calculate the scale ratio for the imageHolder (the further the image -> the smaller the scale)
 				var scaleRatio:Number = focalLength/(focalLength + itemHolder.zpos3D);
@@ -135,9 +217,47 @@ package com.GSLab.ThreeDCarousel
 				//Add the imageHolder to the stage
 				addChild(itemHolder);
 			}
+		}
+		
+		public function resetCarousel():void {
+			stopCarousel();
+			if(numberOfItems <= 0) {
+				return;
+			}
+			
+			//Loop through the images
+			//for (var i:uint = 0; i < itemHolders.length; i++) {
+			while(itemHolders.length > 0) {
 		 
+				//Assign the imageHolder to a local variable
+				//var itemHolder:MovieClip = (MovieClip)(itemsHolder[i]);
+				var itemHolder:* = itemHolders.pop();
+				
+				itemHolder.removeEventListener(MouseEvent.MOUSE_OVER, mouseOverItem);
+				itemHolder.removeEventListener(MouseEvent.MOUSE_OUT, mouseOutItem);
+		 
+				if(itemClickHandler != null) {
+					itemHolder.removeEventListener(MouseEvent.CLICK, itemClickHandler);
+				}
+		 
+				removeChild(itemHolder);
+
+				itemHolder = null;
+			}
+			numberOfItems = 0;
+		}
+
+		public function startCarousel():void {
+			if(numberOfItems <= 0) {
+				Alert.show("No items have been added to the carousel", "Error");
+			}
+
 			//Add an ENTER_FRAME for the rotation
 			addEventListener(Event.ENTER_FRAME, rotateCarousel);
+		}
+		
+		public function stopCarousel():void {
+			removeEventListener(Event.ENTER_FRAME, rotateCarousel);
 		}
 		
 		private function rotateCarousel(e:Event):void {
@@ -198,15 +318,31 @@ package com.GSLab.ThreeDCarousel
 		
 		//This function is called when the mouse is over an imageHolder
 		private function mouseOverItem(e:Event):void {
- 
+			/*
+				It may be possible that the itemHolder has childNodes and this event was fired by one. 
+				So get the itemHolder.
+			*/
+ 			var obj:* = e.target;
+ 			while(!(obj.parent is ThreeDCarousel)) {
+ 				obj = obj.parent;
+ 			}
 			//Set alpha to 1
-			e.target.alpha=1;
+			obj.alpha = 1;
 		}
  
 		//This function is called when the mouse is out of an imageHolder
 		private function mouseOutItem(e:Event):void {
+			/*
+				It may be possible that the itemHolder has childNodes and this event was fired by one. 
+				So get the itemHolder.
+			*/
+ 			var obj:* = e.target;
+ 			while(!(obj.parent is ThreeDCarousel)) {
+ 				obj = obj.parent;
+ 			}
+
 			//Set alpha to default
-			e.target.alpha=defaultItemAlpha;
+			obj.alpha = defaultItemAlpha;
 		}
  
  		/**
